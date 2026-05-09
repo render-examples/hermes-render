@@ -35,7 +35,7 @@ services:
     # #19303 was closed without merging; re-chowning at every container
     # start is the upstream-recommended workaround until that lands.
     # Safe to run unconditionally (no-op on subsequent restarts).
-    dockerCommand: chown -R hermes:hermes /opt/hermes/ui-tui /opt/hermes/node_modules && exec /usr/bin/tini -g -- /opt/hermes/docker/entrypoint.sh gateway run
+    dockerCommand: sh -c "chown -R hermes:hermes /opt/hermes/ui-tui /opt/hermes/node_modules && exec /usr/bin/tini -g -- /opt/hermes/docker/entrypoint.sh gateway run"
     autoDeployTrigger: off
     healthCheckPath: /api/status
 
