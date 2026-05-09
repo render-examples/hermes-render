@@ -219,19 +219,43 @@ Or restore the most recent automatic disk snapshot from the **Disks** page.
 
 ## Security
 
-Hermes' web dashboard has no authentication of its own. The session token it injects into the SPA HTML is regenerated on every server start; anyone who can reach the URL gets it. Upstream's own docs are blunt about this:
+Hermes' web dashboard has no authentication of its own. Anyone who can reach the URL can read and modify your provider keys. This template binds the dashboard to `0.0.0.0:10000` because Render web services need a public listener, so **lock it down before pasting any provider keys**.
 
-> If you bind to `0.0.0.0`, anyone on your network can view and modify your credentials. The dashboard has no authentication of its own.
+Two practical options.
 
-This template binds the dashboard to `0.0.0.0:10000` because Render web services need a public listener. The recommended posture is therefore:
+### Option A: Render IP allowlist
 
-1. Put the service behind Render's IP allowlist (above) before visiting it the first time.
-2. Add a reverse proxy in front (Cloudflare Access, Tailscale, basic-auth via a Render private service sidecar) if you want long-term remote access.
-3. Or keep the IP allowlist permanent and visit the dashboard only from trusted networks.
+Per-service network ACL. You add the IPs you trust; everyone else gets 403 from Render's edge before the request ever hits Hermes.
 
-The OpenAI-compatible API server (`API_SERVER_ENABLED=true`) is a separate concern: that one is properly authenticated by `API_SERVER_KEY` and is safe to expose with a long random key, but it isn't routed to the public URL by this Blueprint.
+1. Get your current public IP from [ifconfig.me](https://ifconfig.me).
+2. Render Dashboard → your service → **Settings** → **Networking** → **IP Allow**.
+3. **Add IP Address** → `<YOUR.PUBLIC.IP>/32` with a description like `home`. Save.
+4. Repeat for any other location you'll work from.
+5. Delete the default `0.0.0.0/0 (everywhere)` entry once your trusted IPs are listed.
 
-For broader Hermes security guidance see the [upstream security doc](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/security.md).
+You can bake this into `render.yaml` for new deploys:
+
+```yaml
+services:
+  - type: web
+    name: hermes
+    # ... existing fields ...
+    ipAllowList:
+      - source: 73.123.45.67/32
+        description: home
+```
+
+Caveat: residential IPs rotate. You'll re-add yours occasionally. Mobile-tethered IPs are usually un-allowlistable.
+
+### Option B: Tailscale
+
+Skip the public internet entirely. Run Tailscale on a sidecar (or use Render's [Tailscale template](https://render.com/docs/deploy-tailscale-derp)) and reach the dashboard only from devices on your Tailnet. More setup than IP allowlist, but no IP rotation pain and works from anywhere.
+
+### Notes
+
+- These two compose: IP allowlist on the Render service, Tailscale on top, both happy.
+- The OpenAI-compatible API server (`API_SERVER_ENABLED=true`) is separate from the dashboard. It uses a bearer token (`API_SERVER_KEY`), so it's safe to expose with a long random key, but this Blueprint doesn't route it publicly.
+- For broader Hermes security guidance see the [upstream security doc](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/security.md).
 
 ## What this template does and doesn't do
 

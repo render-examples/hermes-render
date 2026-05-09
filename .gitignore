@@ -3,6 +3,17 @@
 .env.local
 .env.*.local
 
+# SSH keys, certificates, anything secret-shaped. Never commit.
+*.pem
+*.key
+*-key
+*-key.pub
+*_key
+*_key.pub
+id_*
+*.cert
+*.crt
+
 # OS / editor
 .DS_Store
 Thumbs.db
