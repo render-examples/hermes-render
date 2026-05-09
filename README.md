@@ -2,7 +2,7 @@
 
 Deploy [Hermes Agent](https://github.com/NousResearch/hermes-agent) (the self-improving AI agent from Nous Research) on Render as a single Docker web service with a persistent disk for skills, sessions, and memories.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/render-examples/hermes-render)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy-template/api/github/start?template_repo=hermes-render)
 
 This template pins a specific Hermes release for reproducible deploys, keeps all state on a persistent disk so upgrades are non-destructive, and exposes the Hermes web dashboard at the service URL for browser-based setup.
 
