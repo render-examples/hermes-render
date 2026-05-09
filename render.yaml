@@ -20,15 +20,15 @@ services:
     plan: standard
     image:
       url: docker.io/nousresearch/hermes-agent:v2026.5.7
-    # The upstream image has no CMD, so the entrypoint falls back to the
-    # interactive `hermes` REPL when no command is given. That REPL exits
-    # immediately on non-TTY stdin and takes the container down with it.
-    # `gateway run` is the long-lived foreground process used by upstream's
-    # docker-compose.yml. Render wraps dockerCommand as `sh -c "<value>"`,
-    # so we use the absolute path to the venv'd `hermes` binary; otherwise
-    # `gateway` would be looked up as a system binary and the shell would
-    # exit 127 before the entrypoint's hermes-wrap fallback kicks in.
-    dockerCommand: /opt/hermes/.venv/bin/hermes gateway run
+    # On Render, `dockerCommand` replaces both the image's CMD AND its
+    # ENTRYPOINT. The upstream Hermes image relies on its entrypoint to
+    # drop root via gosu, bootstrap /opt/data, and start the dashboard
+    # side-process when HERMES_DASHBOARD=1. We therefore replicate the
+    # original ENTRYPOINT chain (tini → entrypoint.sh) and pass
+    # `gateway run` as the foreground subcommand. Without `gateway run`,
+    # the entrypoint falls back to the interactive `hermes` REPL, which
+    # exits immediately on Render's non-TTY stdin.
+    dockerCommand: /usr/bin/tini -g -- /opt/hermes/docker/entrypoint.sh gateway run
     autoDeployTrigger: off
     healthCheckPath: /api/status
 
