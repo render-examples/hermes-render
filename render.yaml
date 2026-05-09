@@ -21,21 +21,34 @@ services:
     image:
       url: docker.io/nousresearch/hermes-agent:v2026.5.7
     # On Render, `dockerCommand` replaces both the image's CMD AND its
-    # ENTRYPOINT. The upstream Hermes image relies on its entrypoint to
-    # drop root via gosu, bootstrap /opt/data, and start the dashboard
-    # side-process when HERMES_DASHBOARD=1. We therefore replicate the
-    # original ENTRYPOINT chain (tini → entrypoint.sh) and pass
-    # `gateway run` as the foreground subcommand.
+    # ENTRYPOINT. We replicate the upstream ENTRYPOINT chain (tini →
+    # entrypoint.sh) and pass `gateway run` as the foreground subcommand.
+    # The two `touch` lines and the `chown -R` work around upstream
+    # bugs that prevent the in-browser Chat tab from connecting:
     #
-    # The chown is a workaround for upstream Hermes issue #20500: in
-    # the official image /opt/hermes/ui-tui ships root-owned, but the
-    # dashboard runs as the hermes user after gosu drops privileges,
-    # so the runtime esbuild rebuild for the in-browser Chat tab fails
-    # with EACCES and the Chat tab shows "Chat unavailable: 1". Fix PR
-    # #19303 was closed without merging; re-chowning at every container
-    # start is the upstream-recommended workaround until that lands.
-    # Safe to run unconditionally (no-op on subsequent restarts).
-    dockerCommand: /bin/sh -c chown -R hermes:hermes /opt/hermes/ui-tui /opt/hermes/node_modules && exec /usr/bin/tini -g -- /opt/hermes/docker/entrypoint.sh gateway run
+    #   1. `chown -R hermes:hermes /opt/hermes/ui-tui /opt/hermes/node_modules`
+    #      Workaround for issue #20500: in older v2026.x images the
+    #      tree shipped root-owned but the dashboard runs as hermes.
+    #      Fixed in v2026.5.7's Dockerfile, but harmless to repeat.
+    #
+    #   2. `touch .../packages/hermes-ink/dist/ink-bundle.js`
+    #      The Python staleness check in hermes_cli/main.py looks for
+    #      `dist/ink-bundle.js`, but `@hermes/ink`'s build script is
+    #      `esbuild src/entry-exports.ts --outdir=dist`, which only
+    #      produces `dist/entry-exports.js`. The expected `ink-bundle.js`
+    #      is never created, so `_hermes_ink_bundle_stale()` always
+    #      returns True. Every /api/pty connection then triggers a
+    #      runtime `npm run build` that takes 28+ seconds, which exceeds
+    #      Render/Cloudflare's WebSocket-upgrade idle timeout, and the
+    #      Chat tab fails with HTTP 500. Touching the expected path
+    #      makes the staleness check return False instantly.
+    #
+    #   3. `touch /opt/hermes/ui-tui/dist/entry.js`
+    #      Bumps the entry.js mtime above any source `.ts/.tsx` file,
+    #      so `_tui_build_needed()` also short-circuits. Without this,
+    #      mtime drift between Docker layer commits triggers another
+    #      runtime build for the same reason as above.
+    dockerCommand: /bin/sh -c touch /opt/hermes/ui-tui/packages/hermes-ink/dist/ink-bundle.js /opt/hermes/ui-tui/dist/entry.js && chown -R hermes:hermes /opt/hermes/ui-tui /opt/hermes/node_modules && exec /usr/bin/tini -g -- /opt/hermes/docker/entrypoint.sh gateway run
     autoDeployTrigger: off
     healthCheckPath: /api/status
 
