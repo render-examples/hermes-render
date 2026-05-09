@@ -96,6 +96,31 @@ You can also set any of the `sync: false` env vars in `render.yaml` directly via
 
 The Blueprint generates a `HERMES_GATEWAY_TOKEN` for you. Today, upstream Hermes doesn't read this variable directly at runtime: it's a placeholder for the OpenAI-compatible API server's bearer key. If you set `API_SERVER_ENABLED=true`, copy the value of `HERMES_GATEWAY_TOKEN` into `API_SERVER_KEY` and external HTTP clients can authenticate against `/v1/chat/completions` using `Authorization: Bearer <that value>`.
 
+## Chatting with the agent
+
+The simplest way to talk to your deployed Hermes is the dashboard's **Chat** tab. The Blueprint sets `HERMES_DASHBOARD_TUI=1`, which makes the upstream dashboard expose the full TUI in the browser over a server-side PTY plus xterm.js. Slash commands, model picker, tool-call cards, streaming, sessions: everything works the same as a local terminal.
+
+If you'd rather stay on the command line, two paths work, both because the in-container `hermes` is the same binary as the local CLI:
+
+- **One-shot prompts via Render Shell or SSH.** The browser shell on Render does not allocate a TTY for `runtime: image` services. The interactive REPL (`hermes` with no args) will print a banner and quit immediately with `Warning: Input is not a terminal (fd=0)`. Use the non-interactive form instead:
+
+  ```bash
+  /opt/hermes/.venv/bin/hermes chat -q "summarize today's logs"
+  ```
+
+  This runs one turn, prints the result, and exits cleanly. You can chain it with `--resume <session-id>` to continue an existing conversation.
+
+- **Real terminal via the Render CLI.** From your local machine:
+
+  ```bash
+  render ssh <service-id>
+  /opt/hermes/.venv/bin/hermes
+  ```
+
+  `render ssh` allocates a PTY, so the interactive REPL works.
+
+The chat tab in the dashboard is still the cleanest UX. Use the CLI fallbacks when you're scripting or already in a terminal context.
+
 ## Cost expectations
 
 Costs assume Render's published prices in May 2026 and don't include data egress, which is unmetered for typical Hermes traffic.
@@ -167,6 +192,8 @@ Check the **Events** tab for the deploy that failed, then the **Logs** tab aroun
 | Health check fails on `/api/status`                  | `HERMES_DASHBOARD` is unset or the dashboard crashed. Check `[dashboard]` lines for a Python traceback. |
 | Container OOM-killed                                 | Bump plan to `pro`. Playwright/Chromium is the usual culprit.                 |
 | `Permission denied` on `/opt/data/...`               | The disk was attached after a deploy that ran as a different UID. Restart the service; the entrypoint chowns `/opt/data` on boot when run as root. |
+| `Warning: Input is not a terminal (fd=0)` then `Goodbye!` when running `hermes` | Render's browser shell pipes stdin instead of allocating a PTY. Chat from the dashboard's **Chat** tab, or use `hermes chat -q "..."`, or `render ssh <service-id>` from a local terminal. |
+| `tirith security scanner enabled but not available`  | Harmless. Tirith is an optional Rust-based command scanner; without it, Hermes uses pattern matching. Ignore unless you specifically want native scanning. |
 
 ### Changing env vars
 

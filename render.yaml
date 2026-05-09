@@ -39,6 +39,11 @@ services:
         value: "0.0.0.0"
       - key: HERMES_DASHBOARD_PORT
         value: "10000"
+      # Exposes a Chat tab in the dashboard that embeds the full Hermes TUI
+      # over a server-side PTY + xterm.js. This is how you chat with the
+      # agent without a real terminal on the host side.
+      - key: HERMES_DASHBOARD_TUI
+        value: "1"
 
       # Generated once at first deploy. Reuse this value as API_SERVER_KEY
       # if you later set API_SERVER_ENABLED=true.
