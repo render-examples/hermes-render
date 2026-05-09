@@ -38,6 +38,11 @@ services:
       sizeGB: 5
 
     envVars:
+      # The Blueprint only carries vars that change how the container boots.
+      # All provider keys, tool keys, and chat platform tokens are set
+      # through the Hermes dashboard (API Keys tab), which writes them to
+      # /opt/data/.env on the persistent disk.
+
       # Dashboard side-process. The entrypoint backgrounds `hermes dashboard`
       # before exec'ing `gateway run` whenever HERMES_DASHBOARD is truthy.
       # HERMES_DASHBOARD_HOST=0.0.0.0 makes the entrypoint pass --insecure
@@ -55,76 +60,7 @@ services:
         value: "1"
 
       # Generated once at first deploy. Reuse this value as API_SERVER_KEY
-      # if you later set API_SERVER_ENABLED=true.
+      # in the dashboard if you later opt into the OpenAI-compatible API
+      # server (API_SERVER_ENABLED=true).
       - key: HERMES_GATEWAY_TOKEN
         generateValue: true
-
-      # OpenAI-compatible API server is OFF by default. Enable it only if
-      # you want external clients (Open WebUI, LibreChat, your own code)
-      # to call Hermes over HTTP. Requires API_SERVER_KEY.
-      - key: API_SERVER_ENABLED
-        value: "false"
-      - key: API_SERVER_HOST
-        value: "0.0.0.0"
-      - key: API_SERVER_KEY
-        sync: false
-      - key: API_SERVER_CORS_ORIGINS
-        sync: false
-
-      # LLM provider keys. OpenRouter alone is enough to start; the others
-      # are optional. Fill in via the Render Dashboard (Environment tab).
-      - key: OPENROUTER_API_KEY
-        sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: GOOGLE_API_KEY
-        sync: false
-      - key: HF_TOKEN
-        sync: false
-
-      # Tool API keys (all optional).
-      - key: BROWSERBASE_API_KEY
-        sync: false
-      - key: BROWSERBASE_PROJECT_ID
-        sync: false
-      - key: EXA_API_KEY
-        sync: false
-      - key: FIRECRAWL_API_KEY
-        sync: false
-      - key: TAVILY_API_KEY
-        sync: false
-
-      # Persistent user-modeling backend (Honcho). Optional.
-      - key: HONCHO_API_KEY
-        sync: false
-
-      # Telegram (most common gateway). The webhook variants are not used
-      # here: with TELEGRAM_BOT_TOKEN set and TELEGRAM_WEBHOOK_URL unset,
-      # the gateway runs in long-polling mode, which works on Render
-      # without any extra port exposure.
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_ALLOWED_USERS
-        sync: false
-      - key: TELEGRAM_HOME_CHANNEL
-        sync: false
-
-      # Discord.
-      - key: DISCORD_BOT_TOKEN
-        sync: false
-      - key: DISCORD_ALLOWED_USERS
-        sync: false
-      - key: DISCORD_HOME_CHANNEL
-        sync: false
-
-      # Slack (Socket Mode: needs both bot token and app-level token).
-      - key: SLACK_BOT_TOKEN
-        sync: false
-      - key: SLACK_APP_TOKEN
-        sync: false
-      - key: SLACK_ALLOWED_USERS
-        sync: false
-      - key: SLACK_HOME_CHANNEL
-        sync: false

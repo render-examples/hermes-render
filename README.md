@@ -83,18 +83,23 @@ You can remove the allowlist later if you want a fully public dashboard, but rea
 
 Once the service is healthy (the **Events** tab shows "Deploy live"), open the URL Render assigned (it ends in `.onrender.com`). You'll see the Hermes dashboard.
 
+The Blueprint deliberately keeps the env-var surface tiny. All provider keys, tool keys, and chat platform tokens are set from the dashboard, not from `render.yaml`. The dashboard writes everything to `/opt/data/.env`, which lives on the persistent disk and survives redeploys.
+
 Walk through these tabs in order:
 
-1. **API Keys**. At minimum, paste an `OPENROUTER_API_KEY`. The dashboard writes it into `/opt/data/.env`. Setting keys here also persists them across redeploys.
-2. **Config**. Pick a default model under the `model` section (for example, `anthropic/claude-sonnet-4.6` or any OpenRouter model ID). Save.
+1. **API Keys**. Paste a key for at least one LLM provider. Pick one:
+   - `OPENROUTER_API_KEY` from [openrouter.ai/keys](https://openrouter.ai/keys) routes to most providers behind a single key
+   - `ANTHROPIC_API_KEY` from [console.anthropic.com](https://console.anthropic.com) for Claude models direct
+   - `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `HF_TOKEN`, etc. for the others
+2. **Config**. Set the `model` field at the top of the list. The upstream image's default is `anthropic/claude-opus-4.6`, which works as soon as you've set `ANTHROPIC_API_KEY`. Otherwise pick a model your provider supports (for example, `anthropic/claude-sonnet-4.6` for Anthropic, or any OpenRouter model ID like `openai/gpt-5.5`).
 3. **Status**. Confirm the gateway is running and the model is reachable. The "Connected platforms" list will be empty until you add a chat platform.
-4. **API Keys** again. If you want a chat gateway, add the matching token (Telegram, Discord, Slack). The gateway picks them up on its next restart cycle (or click **Restart** in the Render Dashboard for an immediate effect).
+4. **API Keys** again, optionally. If you want a chat gateway, add the matching tokens: `TELEGRAM_BOT_TOKEN`, `DISCORD_BOT_TOKEN`, `SLACK_BOT_TOKEN` + `SLACK_APP_TOKEN`, etc. Use the **Restart gateway** button on the Status tab so the new tokens are picked up.
 
-You can also set any of the `sync: false` env vars in `render.yaml` directly via the Render Dashboard (**Environment** tab). That's the same outcome as setting them through the Hermes dashboard, just done before the container ever serves a request. Useful if you don't want to rely on the IP allowlist for the first run.
+If you'd rather set keys from the Render Dashboard's **Environment** tab (handy for CI or secrets-manager workflows), that path also works: Render env vars override `/opt/data/.env` at process start. Pick one path and stick with it to avoid drift.
 
 ### Where the "gateway token" fits
 
-The Blueprint generates a `HERMES_GATEWAY_TOKEN` for you. Today, upstream Hermes doesn't read this variable directly at runtime: it's a placeholder for the OpenAI-compatible API server's bearer key. If you set `API_SERVER_ENABLED=true`, copy the value of `HERMES_GATEWAY_TOKEN` into `API_SERVER_KEY` and external HTTP clients can authenticate against `/v1/chat/completions` using `Authorization: Bearer <that value>`.
+The Blueprint generates a `HERMES_GATEWAY_TOKEN` for you. Today, upstream Hermes doesn't read this variable directly at runtime: it's a placeholder for the OpenAI-compatible API server's bearer key. If you opt into the API server (set `API_SERVER_ENABLED=true` from the dashboard's **API Keys** tab, then paste this token into `API_SERVER_KEY`), external HTTP clients can authenticate against `/v1/chat/completions` using `Authorization: Bearer <that value>`.
 
 ## Chatting with the agent
 
@@ -193,7 +198,8 @@ Check the **Events** tab for the deploy that failed, then the **Logs** tab aroun
 | Container OOM-killed                                 | Bump plan to `pro`. Playwright/Chromium is the usual culprit.                 |
 | `Permission denied` on `/opt/data/...`               | The disk was attached after a deploy that ran as a different UID. Restart the service; the entrypoint chowns `/opt/data` on boot when run as root. |
 | `Warning: Input is not a terminal (fd=0)` then `Goodbye!` when running `hermes` | Render's browser shell pipes stdin instead of allocating a PTY. Chat from the dashboard's **Chat** tab, or use `hermes chat -q "..."`, or `render ssh <service-id>` from a local terminal. |
-| `Goodbye! ⚕` in the deploy logs followed by 502s on the URL | The container is missing `dockerCommand: gateway run`. Without it, the entrypoint launches the interactive REPL as PID 1, which exits on Render's non-TTY stdin and takes the container with it. Make sure `render.yaml` has the override. |
+| `Goodbye! ⚕` in the deploy logs followed by 502s on the URL | The container is missing the `dockerCommand` override. On Render, `dockerCommand` replaces both the image's `CMD` and its `ENTRYPOINT`, so you need to invoke the upstream entrypoint chain explicitly: `/usr/bin/tini -g -- /opt/hermes/docker/entrypoint.sh gateway run`. Without it, the entrypoint launches the interactive REPL as PID 1 and exits on Render's non-TTY stdin. |
+| `Refusing to run the Hermes gateway as root` | Same root cause as above. `dockerCommand` bypassed the entrypoint, so `gosu` never dropped privileges. The full entrypoint chain in `dockerCommand` fixes both. |
 | `tirith security scanner enabled but not available`  | Harmless. Tirith is an optional Rust-based command scanner; without it, Hermes uses pattern matching. Ignore unless you specifically want native scanning. |
 
 ### Changing env vars
