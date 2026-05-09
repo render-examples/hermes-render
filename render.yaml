@@ -25,10 +25,17 @@ services:
     # drop root via gosu, bootstrap /opt/data, and start the dashboard
     # side-process when HERMES_DASHBOARD=1. We therefore replicate the
     # original ENTRYPOINT chain (tini → entrypoint.sh) and pass
-    # `gateway run` as the foreground subcommand. Without `gateway run`,
-    # the entrypoint falls back to the interactive `hermes` REPL, which
-    # exits immediately on Render's non-TTY stdin.
-    dockerCommand: /usr/bin/tini -g -- /opt/hermes/docker/entrypoint.sh gateway run
+    # `gateway run` as the foreground subcommand.
+    #
+    # The chown is a workaround for upstream Hermes issue #20500: in
+    # the official image /opt/hermes/ui-tui ships root-owned, but the
+    # dashboard runs as the hermes user after gosu drops privileges,
+    # so the runtime esbuild rebuild for the in-browser Chat tab fails
+    # with EACCES and the Chat tab shows "Chat unavailable: 1". Fix PR
+    # #19303 was closed without merging; re-chowning at every container
+    # start is the upstream-recommended workaround until that lands.
+    # Safe to run unconditionally (no-op on subsequent restarts).
+    dockerCommand: chown -R hermes:hermes /opt/hermes/ui-tui /opt/hermes/node_modules && exec /usr/bin/tini -g -- /opt/hermes/docker/entrypoint.sh gateway run
     autoDeployTrigger: off
     healthCheckPath: /api/status
 
