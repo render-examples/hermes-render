@@ -193,6 +193,7 @@ Check the **Events** tab for the deploy that failed, then the **Logs** tab aroun
 | Container OOM-killed                                 | Bump plan to `pro`. Playwright/Chromium is the usual culprit.                 |
 | `Permission denied` on `/opt/data/...`               | The disk was attached after a deploy that ran as a different UID. Restart the service; the entrypoint chowns `/opt/data` on boot when run as root. |
 | `Warning: Input is not a terminal (fd=0)` then `Goodbye!` when running `hermes` | Render's browser shell pipes stdin instead of allocating a PTY. Chat from the dashboard's **Chat** tab, or use `hermes chat -q "..."`, or `render ssh <service-id>` from a local terminal. |
+| `Goodbye! ⚕` in the deploy logs followed by 502s on the URL | The container is missing `dockerCommand: gateway run`. Without it, the entrypoint launches the interactive REPL as PID 1, which exits on Render's non-TTY stdin and takes the container with it. Make sure `render.yaml` has the override. |
 | `tirith security scanner enabled but not available`  | Harmless. Tirith is an optional Rust-based command scanner; without it, Hermes uses pattern matching. Ignore unless you specifically want native scanning. |
 
 ### Changing env vars

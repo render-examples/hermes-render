@@ -20,6 +20,12 @@ services:
     plan: standard
     image:
       url: docker.io/nousresearch/hermes-agent:v2026.5.7
+    # The upstream image has no CMD, so the entrypoint falls back to the
+    # interactive `hermes` REPL when no command is given. That REPL exits
+    # immediately on non-TTY stdin and takes the container down with it.
+    # `gateway run` is the long-lived foreground process used by upstream's
+    # docker-compose.yml.
+    dockerCommand: gateway run
     autoDeployTrigger: off
     healthCheckPath: /api/status
 
