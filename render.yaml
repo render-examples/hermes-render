@@ -24,8 +24,11 @@ services:
     # interactive `hermes` REPL when no command is given. That REPL exits
     # immediately on non-TTY stdin and takes the container down with it.
     # `gateway run` is the long-lived foreground process used by upstream's
-    # docker-compose.yml.
-    dockerCommand: gateway run
+    # docker-compose.yml. Render wraps dockerCommand as `sh -c "<value>"`,
+    # so we use the absolute path to the venv'd `hermes` binary; otherwise
+    # `gateway` would be looked up as a system binary and the shell would
+    # exit 127 before the entrypoint's hermes-wrap fallback kicks in.
+    dockerCommand: /opt/hermes/.venv/bin/hermes gateway run
     autoDeployTrigger: off
     healthCheckPath: /api/status
 
